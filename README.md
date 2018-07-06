@@ -29,3 +29,7 @@ The lights can be completely portable, but can be controlled by a lighting conso
 # Project Status
 - PC Board designed and ordered, not yet built
 - Software done and tested, as much as possible without hardware
+
+# To Do List
+- Add code to allow for setting of universe and address offset
+- Create 3D printable case
