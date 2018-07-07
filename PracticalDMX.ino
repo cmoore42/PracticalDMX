@@ -1,5 +1,35 @@
 
 
+/*
+The MIT License (MIT)
+
+Copyright (c) 2018 Chris Moore
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Uses or is derived from:
+- WiFiManager by Ken Taylor - https://github.com/kentaylor/WiFiManager 
+- TickerShceulder by Toshik - https://github.com/Toshik/TickerScheduler 
+- E131 by Shelby Merrick - https://github.com/forkineye/E131
+
+*/
+
 // WiFi and WiFiManager
 #include <ESP8266WiFi.h>          // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
@@ -50,12 +80,12 @@ uint8_t levels[NUM_CHANS];
 uint8_t output_pins[NUM_CHANS];
 
 // Overall state
-#define STATE_UNKNOWN -1
-#define STATE_CONNECTING 0
-#define STATE_CONFIG 1
-#define STATE_CONNECTED 2
-#define STATE_FAILED 3
-#define STATE_DATALOSS 4
+#define STATE_UNKNOWN -1    // Startup state
+#define STATE_CONNECTING 0  // Trying to connect to WiFi
+#define STATE_CONFIG 1      // In AP mode, presenting the config page
+#define STATE_CONNECTED 2   // Connected to WiFi
+#define STATE_FAILED 3      // In a failed state
+#define STATE_DATALOSS 4    // Connected but no sACN received 
 int state = STATE_UNKNOWN;
 
 void setup() {
@@ -71,7 +101,6 @@ void setup() {
     analogWrite(output_pins[i], 0);
   }
 
-  
   pinMode(PIN_LED, OUTPUT);
   Serial.begin(115200);
   Serial.println("\n Starting");
@@ -83,7 +112,9 @@ void setup() {
   
   updateDisplay();
   
-  // WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
+  // WiFi.printDiag(Serial);
+
+  
   if (WiFi.SSID()==""){
     Serial.println("We haven't got any access point credentials, so get them now");   
     initialConfig = true;
@@ -185,19 +216,10 @@ void loop() {
         levels[i] = e131.data[i];
       }
       updateLevels();
-
-#if 0
-      Serial.printf("Universe %u / %u Channels | Packet#: %u / Errors: %u / CH1: %u\n",
-              e131.universe,              // The Universe for this packet
-              num_channels,               // Number of channels in this packet
-              e131.stats.num_packets,     // Packet counter
-              e131.stats.packet_errors,   // Packet error counter
-              e131.data[0]);              // Dimmer data for Channel 1
-#endif
   }
 
+  // Let the TickerScheduler do its thing
   ts.update();
-
 }
 
 /**
