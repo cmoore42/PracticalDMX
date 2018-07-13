@@ -1,5 +1,3 @@
-
-
 /*
 The MIT License (MIT)
 
@@ -27,7 +25,6 @@ Uses or is derived from:
 - WiFiManager by Ken Taylor - https://github.com/kentaylor/WiFiManager 
 - TickerShceulder by Toshik - https://github.com/Toshik/TickerScheduler 
 - E131 by Shelby Merrick - https://github.com/forkineye/E131
-
 */
 
 // WiFi and WiFiManager
@@ -52,9 +49,6 @@ const int PIN_LED = LED_BUILTIN;
 
 /*Trigger for inititating config mode */
 const int TRIGGER_PIN = D3; // Flash button on NodeMCU
-
-// Indicates whether ESP has WiFi credentials saved from previous session
-bool initialConfig = false;
 
 // Adafruit_SSD1306 expects a reset pin, but the OLED I'm using doesn't
 // have one.  Using the LED pin instead.
@@ -113,15 +107,14 @@ void setup() {
   updateDisplay();
   
   // WiFi.printDiag(Serial);
-
-  
+ 
   if (WiFi.SSID()==""){
     Serial.println("We haven't got any access point credentials, so get them now");   
-    initialConfig = true;
     state_change(STATE_CONFIG);
   } else {
+    Serial.print("Trying to connect to ");
+    Serial.println(WiFi.SSID());
     state_change(STATE_CONNECTING);
-    digitalWrite(PIN_LED, HIGH); // Turn led off as we are not in configuration mode.
     updateDisplay();
     WiFi.mode(WIFI_STA); // Force to station mode because if device was switched off while in access point mode it will start up next time in access point mode.
     unsigned long startedAt = millis();
@@ -134,7 +127,7 @@ void setup() {
   }
   pinMode(TRIGGER_PIN, INPUT_PULLUP);
 
-  if (WiFi.status()!=WL_CONNECTED){
+  if ((WiFi.status()!=WL_CONNECTED) && (state == STATE_CONNECTING)) {
     // Sometimes it seems to go from DISCONNECTED to FAILED and then to CONNECTED.
     // We'll wait up to 10 seconds for it to connect
     int iter = 10;
@@ -151,7 +144,6 @@ void setup() {
     }
     if (state != STATE_CONNECTED) {
       state_change(STATE_CONFIG);
-      initialConfig = true;
     }
   } else {
     state_change(STATE_CONNECTED);
@@ -160,8 +152,6 @@ void setup() {
   if (state == STATE_CONNECTED) {
     Serial.print("local ip: ");
     Serial.println(WiFi.localIP());
-
-    e131.begin(E131_MULTICAST);
   } else {
     Serial.println("failed to connect, finishing setup anyway");
   }
@@ -172,12 +162,14 @@ void setup() {
 
 
 void loop() {
-  // is configuration portal requested?
-  if ((digitalRead(TRIGGER_PIN) == LOW) || (initialConfig)) {
-     Serial.println("Configuration portal requested.");
+  // If the TRIGGER_PIN goes low, enter CONFIG mode
+  if (digitalRead(TRIGGER_PIN) == LOW) {
      state_change(STATE_CONFIG);
+  }
+
+  if (state == STATE_CONFIG) {
+     Serial.println("Configuration portal requested.");
      updateDisplay();
-     digitalWrite(PIN_LED, LOW); // turn the LED on by making the voltage LOW to tell us we are in configuration mode.
     //Local intialization. Once its business is done, there is no need to keep it around
     WiFiManager wifiManager;
 
@@ -199,7 +191,6 @@ void loop() {
       Serial.print("local ip: ");
       Serial.println(WiFi.localIP());
     }
-    digitalWrite(PIN_LED, HIGH); // Turn led off as we are not in configuration mode.
     ESP.reset(); // This is a bit crude. For some unknown reason webserver can only be started once per boot up 
     // so resetting the device allows to go back into config mode again when it reboots.
     delay(5000);
@@ -333,17 +324,31 @@ void tick_handler(void  *arg) {
 
 /**
  * Helper function to go to a new state.
- * The only reason this exists is so that you can see state changes
- * on the serial port, for debugging.
  */
 void state_change(int new_state)
 {
+  int old_state = state;
   Serial.print("Changing from state ");
-  Serial.print(state);
+  Serial.print(old_state);
   Serial.print(" to state ");
-  state = new_state;
-  Serial.println(state);
+  Serial.println(new_state);
+
+  /* Trun on the LED if we're entering CONFIG mode, otherwise turn it off */
+  if (new_state == STATE_CONFIG) {
+    digitalWrite(PIN_LED, LOW);
+  } else {
+    digitalWrite(PIN_LED, HIGH);
+  }
+
+  /*  If we just connected, start the E13.1 processing - unless this was
+   *  just a transition from DATALOSS to CONNECTED, in which case E13.1
+   *  was already running.
+   */
+  if ((new_state == STATE_CONNECTED) && (old_state != STATE_DATALOSS)) {
+    e131.begin(E131_MULTICAST);
+  }
   
+  state = new_state; 
 }
 
 
