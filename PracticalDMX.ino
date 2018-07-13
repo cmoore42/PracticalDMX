@@ -68,6 +68,15 @@ int channel_offset = 0;
 TickerScheduler ts(1);
 void tick_handler(void *);
 
+// REST server
+#define REST_PORT 80
+ESP8266WebServer restServer(REST_PORT);
+void rest_get_universe();
+void rest_put_universe();
+void rest_get_offset();
+void rest_put_offset();
+void handle_not_found();
+
 // Number of channels supported by the hardware
 #define NUM_CHANS 4
 uint8_t levels[NUM_CHANS];
@@ -211,6 +220,9 @@ void loop() {
 
   // Let the TickerScheduler do its thing
   ts.update();
+
+  // Handle any REST requests
+  restServer.handleClient();
 }
 
 /**
@@ -345,10 +357,67 @@ void state_change(int new_state)
    *  was already running.
    */
   if ((new_state == STATE_CONNECTED) && (old_state != STATE_DATALOSS)) {
+    /* Start the E13.1 listener */
     e131.begin(E131_MULTICAST);
+
+    /* Start the REST listener */
+    restServer.on("/universe", HTTP_GET, rest_get_universe);
+    restServer.on("/universe", HTTP_PUT, rest_put_universe);
+    restServer.on("/offset", HTTP_GET, rest_get_offset);
+    restServer.on("/offset", HTTP_PUT, rest_put_offset);
+    restServer.onNotFound(handle_not_found);
+    restServer.on("/", handle_root);
+    restServer.begin();
+    Serial.print("REST server started on port ");
+    Serial.println(REST_PORT);
   }
   
   state = new_state; 
+}
+
+void rest_get_universe()
+{
+  Serial.println("Got REST request for universe");
+  String body = String(universe);
+  restServer.send(200, "text/plain", body);
+}
+
+void rest_put_universe()
+{
+  
+}
+
+void rest_get_offset()
+{
+  Serial.println("Got REST request for offset");
+  String body = String(channel_offset);
+  restServer.send(200, "text/plain", body);  
+}
+
+void rest_put_offset()
+{
+  
+}
+
+void handle_root()
+{
+  restServer.send(200, "text/plain", "Root");
+}
+
+void handle_not_found()
+{
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += restServer.uri();
+  message += "\nMethod: ";
+  message += (restServer.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += restServer.args();
+  message += "\n";
+  for (uint8_t i = 0; i < restServer.args(); i++) {
+    message += " " + restServer.argName(i) + ": " + restServer.arg(i) + "\n";
+  }
+  restServer.send(404, "text/plain", message); 
 }
 
 
