@@ -377,7 +377,6 @@ void state_change(int new_state)
 
 void rest_get_universe()
 {
-  Serial.println("Got REST request for universe");
   String body = String(universe);
   restServer.send(200, "text/plain", body);
 }
@@ -389,7 +388,6 @@ void rest_put_universe()
 
 void rest_get_offset()
 {
-  Serial.println("Got REST request for offset");
   String body = String(channel_offset);
   restServer.send(200, "text/plain", body);  
 }
