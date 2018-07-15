@@ -210,10 +210,17 @@ void loop() {
   uint16_t num_channels = e131.parsePacket();
     
   /* Process channel data if we have it */
-  if (num_channels > 0) {
+  if (num_channels > channel_offset) {
       ++frames_since_last_tick;
-      for (int i=0; i < (num_channels > 4 ? 4 : num_channels); i++) {
-        levels[i] = e131.data[i];
+      int first = channel_offset;
+      int last = channel_offset + NUM_CHANS;
+      if (last >= num_channels) {
+        last = num_channels-1;
+      }
+      int j=0;
+      for (int i=first; i < last; i++) {
+        levels[j] = e131.data[i];
+        ++j;
       }
       updateLevels();
   }
@@ -279,7 +286,9 @@ void updateDisplay() {
       display.println(WiFi.localIP());
       for (i=0; i<NUM_CHANS; i++) {
         display.print("Ch ");
-        display.print(i+1);
+        display.print(universe);
+        display.print("/");
+        display.print(channel_offset+i+1);
         display.print(": ");
         display.println(levels[i]);
       }
@@ -292,7 +301,9 @@ void updateDisplay() {
       display.println(WiFi.localIP());
       for (i=0; i<NUM_CHANS; i++) {
         display.print("Ch ");
-        display.print(i+1);
+        display.print(universe);
+        display.print("/");
+        display.print(channel_offset+i+1);
         display.print(": ");
         display.println(levels[i]);
       }
@@ -358,7 +369,7 @@ void state_change(int new_state)
    */
   if ((new_state == STATE_CONNECTED) && (old_state != STATE_DATALOSS)) {
     /* Start the E13.1 listener */
-    e131.begin(E131_MULTICAST);
+    e131.begin(E131_MULTICAST, universe);
 
     /* Start the REST listener */
     restServer.on("/universe", HTTP_GET, rest_get_universe);
