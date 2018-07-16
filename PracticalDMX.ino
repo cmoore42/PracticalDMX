@@ -62,7 +62,7 @@ int frames_since_last_tick = 0;
 int data_loss_counter = 0;    // Number of seconds since we last saw a frame
 #define DATA_LOSS_TIMEOUT 5   // After this many seconds of no data all channels go to 0
 int universe = 1;
-int channel_offset = 0;
+int base_address = 1;
 
 // Timer related items
 TickerScheduler ts(1);
@@ -73,9 +73,10 @@ void tick_handler(void *);
 ESP8266WebServer restServer(REST_PORT);
 void rest_get_universe();
 void rest_put_universe();
-void rest_get_offset();
-void rest_put_offset();
+void rest_get_address();
+void rest_put_address();
 void handle_not_found();
+void handle_root();
 
 // Number of channels supported by the hardware
 #define NUM_CHANS 4
@@ -210,10 +211,22 @@ void loop() {
   uint16_t num_channels = e131.parsePacket();
     
   /* Process channel data if we have it */
-  if (num_channels > channel_offset) {
+  /*
+   * data[0] is DMX address 1, etc
+   * We are interested in values for "base_address" through "base_address + NUM_CHAN - 1"
+   * eg:  if base_address is 20 and NUM_CHAN is 4, we want DMX addresses 20-23
+   * 
+   * num_channels is how many channels of DMX data we got in a packet
+   * 
+   * if (num_channels < base_address) then we didn't get data for the our lowest address
+   * if (num_channels > (base_address + NUM_CHAN -1)) then we got more than we need
+   * 
+   */
+   
+  if (num_channels >= base_address) {
       ++frames_since_last_tick;
-      int first = channel_offset;
-      int last = channel_offset + NUM_CHANS;
+      int first = base_address - 1;
+      int last = base_address + NUM_CHANS - 1;
       if (last >= num_channels) {
         last = num_channels-1;
       }
@@ -288,7 +301,7 @@ void updateDisplay() {
         display.print("Ch ");
         display.print(universe);
         display.print("/");
-        display.print(channel_offset+i+1);
+        display.print(base_address+i);
         display.print(": ");
         display.println(levels[i]);
       }
@@ -303,7 +316,7 @@ void updateDisplay() {
         display.print("Ch ");
         display.print(universe);
         display.print("/");
-        display.print(channel_offset+i+1);
+        display.print(base_address+i);
         display.print(": ");
         display.println(levels[i]);
       }
@@ -374,8 +387,8 @@ void state_change(int new_state)
     /* Start the REST listener */
     restServer.on("/universe", HTTP_GET, rest_get_universe);
     restServer.on("/universe", HTTP_PUT, rest_put_universe);
-    restServer.on("/offset", HTTP_GET, rest_get_offset);
-    restServer.on("/offset", HTTP_PUT, rest_put_offset);
+    restServer.on("/address", HTTP_GET, rest_get_address);
+    restServer.on("/address", HTTP_PUT, rest_put_address);
     restServer.onNotFound(handle_not_found);
     restServer.on("/", handle_root);
     restServer.begin();
@@ -397,13 +410,13 @@ void rest_put_universe()
   
 }
 
-void rest_get_offset()
+void rest_get_address()
 {
-  String body = String(channel_offset);
+  String body = String(base_address);
   restServer.send(200, "text/plain", body);  
 }
 
-void rest_put_offset()
+void rest_put_address()
 {
   
 }
