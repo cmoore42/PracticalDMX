@@ -137,33 +137,42 @@ void setup() {
   }
   pinMode(TRIGGER_PIN, INPUT_PULLUP);
 
-  if ((WiFi.status()!=WL_CONNECTED) && (state == STATE_CONNECTING)) {
-    // Sometimes it seems to go from DISCONNECTED to FAILED and then to CONNECTED.
-    // We'll wait up to 10 seconds for it to connect
-    int iter = 10;
-    while(iter > 0) {
-      int connRes = WiFi.status();
-      Serial.print("Status is ");
-      Serial.println(connRes);
-      if (connRes == WL_CONNECTED) {
-        state_change(STATE_CONNECTED);
-        break;
+  /*
+   * Posibilities at this point:
+   * - We're in STATE_CONNECTING and we've connected
+   * - We're in STATE_CONNECTING and we're not connected
+   * - We're in STATE_CONFIG
+   */
+
+  if (state == STATE_CONNECTING) {
+    if ((WiFi.status()!=WL_CONNECTED)) {
+      // Sometimes it seems to go from DISCONNECTED to FAILED and then to CONNECTED.
+      // We'll wait up to 10 seconds for it to connect
+      int iter = 10;
+      while(iter > 0) {
+        int connRes = WiFi.status();
+        Serial.print("Status is ");
+        Serial.println(connRes);
+        if (connRes == WL_CONNECTED) {
+          state_change(STATE_CONNECTED);
+          break;
+        }
+        delay(1000);
+        --iter;
       }
-      delay(1000);
-      --iter;
+      if (state != STATE_CONNECTED) {
+        /* After 10 seconds we're still not connected */
+        state_change(STATE_CONFIG);
+      }
+    } else {
+      /* We were in STATE_CONNECTING and now we're connected */
+      state_change(STATE_CONNECTED);
     }
-    if (state != STATE_CONNECTED) {
-      state_change(STATE_CONFIG);
-    }
-  } else {
-    state_change(STATE_CONNECTED);
   }
   
   if (state == STATE_CONNECTED) {
     Serial.print("local ip: ");
     Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("failed to connect, finishing setup anyway");
   }
   updateDisplay();
 
