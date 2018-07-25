@@ -27,9 +27,12 @@ The lights can be completely portable, but can be controlled by a lighting conso
 - Various connectors, headers, sockets
 
 # Project Status
-- PC Board designed and ordered, not yet built
+- PC Board designed and ordered
+- PC Board built and tested with 12V input power
 - Software done and tested, as much as possible without hardware
 
 # To Do List
 - Add code to allow for setting of universe and address offset
+- Test PC board with actual 12V LED lights
+- Add overcurrent protection to circuit
 - Create 3D printable case
